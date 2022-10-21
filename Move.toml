@@ -8,5 +8,5 @@ rev = 'main'
 subdir = 'aptos-move/framework/aptos-framework'
 
 [addresses]
-aptos_vault = "0x6c000fe8e8466d3eaa10eec9539e29fd9f7f55086e65ae20639d333c5934b39d"
+aptos_vault = "0x1"
 deployer_address = "0xCAFE"

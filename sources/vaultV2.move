@@ -4,6 +4,7 @@ module aptos_vault::VaultV2 {
     use std::string;
     use std::signer;
     use std::option;
+    use std::debug;
 
     use aptos_framework::coin;
     use aptos_framework::account;
@@ -25,6 +26,7 @@ module aptos_vault::VaultV2 {
 
     /// Constructor
     fun init_module(sender: signer) {
+        debug::print(&b"Init...");
         // Only owner can create admin.
         assert!(signer::address_of(&sender) == @deployer_address, ENOT_DEPLOYER_ADDRESS);
 
@@ -56,7 +58,7 @@ module aptos_vault::VaultV2 {
 
     /// Signet deposits `amount` amount of LP into the vault.
     /// LP tokens to mint = (token_amount / total_staked_amount) * total_lp_supply
-    public entry fun deposite(sender: signer, vault_owner: address, amount: u64) acquires VaultInfo {
+    public entry fun deposit(sender: signer, vault_owner: address, amount: u64) acquires VaultInfo {
         let sender_addr = signer::address_of(&sender);
         assert!(exists<VaultInfo>(vault_owner), ENOT_INIT);
 
@@ -118,5 +120,92 @@ module aptos_vault::VaultV2 {
 
         // Update the `total_staked` value
         vault_info.total_staked = vault_info.total_staked + amount;
+    }
+
+    #[test_only]
+    use aptos_framework::aptos_account;
+    use aptos_framework::aggregator_factory;
+
+    #[test_only]
+    struct FakeCoin {}
+
+    #[test_only]
+    struct FakeCoinCapabilities has key {
+        mint_cap: coin::MintCapability<FakeCoin>
+    }
+
+    #[test_only]
+    const ENOT_CORRECT_MINT_AMOUNT: u64 = 10;
+    const ENOT_COIN_INITIALIZED: u64 = 11;
+    const ENOT_CAPABILITIES: u64 = 12;
+
+    #[test_only]
+    public fun initialize_coin(admin: &signer) {
+        let (burn_cap, freeze_cap, mint_cap) = coin::initialize<FakeCoin>(
+            admin,
+            string::utf8(b"Fake Coin"),
+            string::utf8(b"Fake"),
+            18,
+            true,
+        );
+
+        coin::destroy_burn_cap<FakeCoin>(burn_cap);
+        coin::destroy_freeze_cap<FakeCoin>(freeze_cap);
+
+        move_to(admin, FakeCoinCapabilities {
+            mint_cap,
+        });
+    }
+
+    #[test_only]
+    public fun mint_coin(admin: &signer, user: &signer, amount: u64) acquires FakeCoinCapabilities {
+        let user_addr = signer::address_of(user);
+        aptos_account::create_account(user_addr);
+        coin::register<FakeCoin>(user);
+
+        assert!(
+            exists<FakeCoinCapabilities>(signer::address_of(admin)),
+            ENOT_CAPABILITIES
+        );
+
+        let capabilities = borrow_global<FakeCoinCapabilities>(signer::address_of(admin));
+
+        coin::deposit<FakeCoin>(user_addr, coin::mint<FakeCoin>(amount, &capabilities.mint_cap));
+    }
+
+    #[test(admin=@aptos_vault, user=@0xAAAA)]
+    public fun test_fake_mint_token_works(admin: &signer, user: &signer) acquires FakeCoinCapabilities {
+        let user_addr = signer::address_of(user); 
+        let mint_amount = 100;
+
+        aptos_framework::account::create_account_for_test(signer::address_of(admin));
+        aggregator_factory::initialize_aggregator_factory_for_test(admin);
+        initialize_coin(admin);
+        assert!(coin::is_coin_initialized<FakeCoin>(), ENOT_COIN_INITIALIZED);
+        mint_coin(admin, user, mint_amount);
+
+        let balance = coin::balance<FakeCoin>(user_addr);
+        debug::print(&balance);
+        assert!(balance == mint_amount, ENOT_CORRECT_MINT_AMOUNT);
+    }
+
+    #[test(admin=@aptos_vault, user=@0xAAAA)]
+    public fun test_staking_works(admin: &signer, user: signer) acquires FakeCoinCapabilities, VaultInfo {
+        let user_addr = signer::address_of(&user); 
+        let admin_addr = signer::address_of(admin);
+        let mint_amount = 1000;
+
+        aptos_framework::account::create_account_for_test(signer::address_of(admin));
+        aggregator_factory::initialize_aggregator_factory_for_test(admin);
+        initialize_coin(admin);
+        assert!(coin::is_coin_initialized<FakeCoin>(), ENOT_COIN_INITIALIZED);
+        mint_coin(admin, &user, mint_amount);
+
+        let balance = coin::balance<FakeCoin>(user_addr);
+        debug::print(&balance);
+        assert!(balance == mint_amount, ENOT_CORRECT_MINT_AMOUNT);
+
+        deposit(user, admin_addr, mint_amount);
+        assert!(coin::balance<FakeCoin>(user_addr) == 0, ENOT_CORRECT_MINT_AMOUNT);
     }
 }
