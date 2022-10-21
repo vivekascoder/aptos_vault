@@ -103,4 +103,20 @@ module aptos_vault::VaultV2 {
         // Update the info in the VaultInfo.
         vault_info.total_staked = vault_info.total_staked - shares;
     }
+
+    /// Admin can add more amount into the pool thus increasing the total_staked amount 
+    /// but the shares are still same to user's will be able to claim more amount of `AptosCoin` back
+    /// than their investments.
+    public entry fun add_funds_to_vault(sender: signer, amount: u64) acquires VaultInfo {
+        let sender_addr = signer::address_of(&sender);
+        // Only owner can create admin.
+        assert!(sender_addr == @deployer_address, ENOT_DEPLOYER_ADDRESS);
+        assert!(exists<VaultInfo>(sender_addr), ENOT_INIT);
+
+        let vault_info = borrow_global_mut<VaultInfo>(sender_addr);
+        coin::transfer<AptosCoin>(&sender, vault_info.resource, amount);
+
+        // Update the `total_staked` value
+        vault_info.total_staked = vault_info.total_staked + amount;
+    }
 }
