@@ -9,3 +9,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 
 [addresses]
 aptos_vault = "0x3"
+deployer_address = "0xCAFE"
