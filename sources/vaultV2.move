@@ -23,8 +23,8 @@ module aptos_vault::VaultV2 {
         resource_cap: account::SignerCapability
     }
 
-
-    public fun init_module(sender: signer) {
+    /// Constructor
+    fun init_module(sender: signer) {
         // Only owner can create admin.
         assert!(signer::address_of(&sender) == @deployer_address, ENOT_DEPLOYER_ADDRESS);
 

@@ -21,7 +21,7 @@ module aptos_vault::Vault {
     }
 
 
-    public fun init_module(sender: signer) {
+    fun init_module(sender: signer) {
         // Create a resource account to hold the funds.
         let (resource, resource_cap) = account::create_resource_account(&sender, x"01");
 
